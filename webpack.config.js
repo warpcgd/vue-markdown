@@ -1,5 +1,9 @@
-var webpack = require('webpack');
-var version = require("./package.json").version;
+const path = require('path')
+const webpack = require('webpack');
+const version = require("./package.json").version;
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
+const VueLoaderPlugin = require('vue-loader/lib/plugin')
+const resolve = dir => path.join(__dirname, '..', dir)
 var banner =
   "/**\n" +
   " * vue-markdown v" + version + "\n" +
@@ -8,30 +12,66 @@ var banner =
   " */\n";
 
 module.exports = {
+  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+  devtool: process.env.NODE_ENV === 'production' ? '' : 'inline-source-map',
+  devServer: { // 检测代码变化并自动重新编译并自动刷新浏览器
+    contentBase: path.resolve(__dirname, 'dist'), // 设置静态资源的根目录
+    hot: true
+  },
   entry: './src/build.js',
   output: {
-    path: './dist',
+    path: path.resolve(__dirname, 'dist'),
     filename: 'vue-markdown.js',
     library: 'VueMarkdown',
     libraryTarget: 'umd'
   },
-  plugins: [
-    new webpack.BannerPlugin(banner, { raw: true })
-  ],
   module: {
-    loaders: [{
-      test: /\.vue$/,
-      loader: 'vue'
-    }, {
-        test: /\.css$/,
-        loader: "style!css"
-      }, {
+    // 加载器
+    rules: [{
+        test: /\.(js|vue)$/,
+        loader: 'eslint-loader',
+        enforce: 'pre',
+        include: [resolve('src')],
+        options: {
+          formatter: require('eslint-friendly-formatter')
+        }
+      },
+      // 解析.vue文件
+      {
+        test: /.vue$/,
+        loader: 'vue-loader'
+      },
+      // 转化ES6的语法
+      {
         test: /\.js$/,
-        loader: 'babel',
-        exclude: /node_modules/
-      }, {
-        test: /\.json$/,
+        exclude: /node_modules/,
+        loader: 'babel-loader'
+      },
+      // 编译css并自动添加css前缀
+      {
+        test: /\.css$/,
+        use: [ // 应用于模块的 loader 使用列表
+          'style-loader',
+          'css-loader'
+        ]
+      },
+      // html模板编译
+      {
+        test: /\.(html|tpl)$/,
+        loader: 'html-loader'
+      },
+      {
+        test: /\.json$/i,
+        type: 'javascript/auto',
         loader: 'json-loader'
-      }]
+      }
+    ]
   },
+  plugins: [
+    // new webpack.optimize.UglifyJsPlugin(),
+    new VueLoaderPlugin(),
+    new BundleAnalyzerPlugin(),
+    new webpack.HotModuleReplacementPlugin(),
+    new webpack.BannerPlugin(banner)
+  ]
 }
